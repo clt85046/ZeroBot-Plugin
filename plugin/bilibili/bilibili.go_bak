@@ -557,141 +557,43 @@ func init() {
 		ctx.SendChain(message.Image("file:///" + file.BOTPATH + "/" + drawedFile))
 	})
 
-	engine.OnRegex(`^查打米\s?(\S{1,25})\s?(\d*)$`, getPara).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+	engine.OnRegex(`^查营收\s?(\S{1,25})\s?(\d*)$`, getPara).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 			id := ctx.State["uid"].(string)
-			today := time.Now().Format("2006-01-02")
-			drawedFile := cachePath + today + " " + id +"_cost.png"
-			if file.IsExist(drawedFile) {
-				ctx.SendChain(message.Image("file:///" + file.BOTPATH + "/" + drawedFile))
-				return
-			}
-			u, err := bz.GetMemberCard(id)
-			if err != nil {
-				ctx.SendChain(message.Text("ERROR: ", err))
-				return
-			}
-			var costDetail bz.CostDetail
+			pagenum := 0
+			// u, err := bz.GetMemberCard(id)
+			// if err != nil {
+			// 	ctx.SendChain(message.Text("ERROR: ", err))
+			// 	return
+			// }
+			var danmaku bz.Danmakusuki
 			tr := &http.Transport{
 				DisableKeepAlives: true,
 				TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
 			}
 			client := &http.Client{Transport: tr}
-			data, err := web.RequestDataWith(client, fmt.Sprintf(bz.CostUrl, id), "GET", "", web.RandUA(), nil)
+			data, err := web.RequestDataWith(client, fmt.Sprintf("https://ukamnads.icu/api/search/user/detail?uid=%v&pagenum=%v&pagesize=100", id, pagenum), "GET", "", web.RandUA(), nil)
 			if err != nil {
 				ctx.SendChain(message.Text("ERROR: ", err))
 				return
 			}
-			err = json.Unmarshal(data, &costDetail)
+			err = json.Unmarshal(data, &danmaku)
 			if err != nil {
 				ctx.SendChain(message.Text("ERROR: ", err))
 				return
 			}
-			backX := 500
-			backY := 500
-			facePath := cachePath + id + "vupFace" + path.Ext(u.Face)
-			var back image.Image
-			if path.Ext(u.Face) != ".webp" {
-				err = initFacePic(facePath, u.Face)
+			hasMore := danmaku.Data.HasMore
+			ctx.SendChain(message.Text("hasMore: ", hasMore))
+			for{
+				if(!hasMore){
+					break
+				}
+				pagenum = pagenum + 1
+				data, err = web.RequestDataWith(client, fmt.Sprintf("https://ukamnads.icu/api/search/user/detail?uid=%v&pagenum=%v&pagesize=100", id, pagenum), "GET", "", web.RandUA(), nil)
 				if err != nil {
 					ctx.SendChain(message.Text("ERROR: ", err))
 					return
 				}
-				back, err = gg.LoadImage(facePath)
-				if err != nil {
-					ctx.SendChain(message.Text("ERROR: ", err))
-					return
-				}
-				back = imgfactory.Size(back, backX, backY).Image()
 			}
-			canvas := gg.NewContext(100, 100)
-			fontSize := 50.0
-			data, err = file.GetLazyData(text.BoldFontFile, control.Md5File, true)
-			if err != nil {
-				ctx.SendChain(message.Text("ERROR: ", err))
-			}
-			if err = canvas.ParseFontFace(data, fontSize); err != nil {
-				ctx.SendChain(message.Text("ERROR: ", err))
-				return
-			}
-			dz, h := canvas.MeasureString("好")
-			danmuH := h * 3
-			cw := 10000
-			mcw := float64(2000)
-			high := 0
-			for i := 0; i < len(costDetail); i++ {
-				if costDetail[i].Cost!="0"{
-					high += 1 
-				}
-			} 
-			ch := 550 + high*int(danmuH)
-			canvas = gg.NewContext(cw, ch)
-			canvas.SetColor(color.White)
-			canvas.Clear()
-			canvas.SetColor(color.Black)
-			if err = canvas.ParseFontFace(data, fontSize); err != nil {
-				ctx.SendChain(message.Text("ERROR: ", err))
-				return
-			}
-			facestart := 100
-			startWidth := float64(700)
-			startWidth2 := float64(20)
-
-			if back != nil {
-				canvas.DrawImage(back, facestart, 0)
-			}
-			length, _ := canvas.MeasureString(u.Mid)
-			n, _ := canvas.MeasureString(u.Name)
-			canvas.DrawString(u.Name, startWidth, 122.5)
-			canvas.DrawRoundedRectangle(900+n-length*0.1, 66, length*1.2, 75, fontSize*0.2)
-			canvas.SetRGB255(221, 221, 221)
-			canvas.Fill()
-			canvas.SetColor(color.Black)
-			canvas.DrawString(u.Mid, 900+n, 122.5)
-			var channelStart float64
-			channelStart = float64(550)
-			for i := 0; i < len(costDetail); i++ {
-					CostStart := channelStart 
-					item := costDetail[i]
-					if(item.Cost!="0"){
-						moveW := startWidth2
-						danmuNow := CostStart
-						t := item.Name
-						l, _ := canvas.MeasureString(t)
-						canvas.DrawString(t, moveW, danmuNow)
-						moveW += l + dz
-						t = item.Cost
-						l, _ = canvas.MeasureString(t)
-						canvas.DrawString(t, moveW, danmuNow)
-						moveW += l + dz
-						if moveW > mcw {
-							mcw = moveW
-						}
-						channelStart = CostStart + 1.5*danmuH
-					}
-			}
-			im := canvas.Image().(*image.RGBA)
-			nim := im.SubImage(image.Rect(0, 0, int(mcw), ch))
-			f, err := os.Create(drawedFile)
-			if err != nil {
-				log.Errorln("[bilibili]", err)
-				data, err := imgfactory.ToBytes(nim)
-				if err != nil {
-					log.Errorln("[bilibili]", err)
-					return
-				}
-				ctx.SendChain(message.ImageBytes(data))
-				return
-			}
-			_, err = imgfactory.WriteTo(nim, f)
-			_ = f.Close()
-			if err != nil {
-				ctx.SendChain(message.Text("ERROR: ", err))
-				return
-			}
-			ctx.SendChain(message.Image("file:///" + file.BOTPATH + "/" + drawedFile))	
-
-
-			
 
 		
 	})
@@ -709,7 +611,6 @@ func init() {
 				return
 			}
 			ctx.SendChain(message.Text(ctx.State["regex_matched"].([]string)[1] + " " + id  + " 爱A值: ", string(data)))
-
 		
 	})
 
@@ -1260,7 +1161,7 @@ engine.OnRegex(`^查指定畜\s?(\S{1,25})\s[ ]?(\S{1,25})\s?(\d*)$`, getPara2).
 
 
 
-	engine.OnFullMatch("粉丝数").SetBlock(true).
+engine.OnFullMatch("粉丝数").SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			today := time.Now().Format("2006-01-02 15:04:05")
 			drawedFile := cachePath + today + "vupLike.png"

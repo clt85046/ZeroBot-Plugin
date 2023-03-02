@@ -128,28 +128,24 @@ func init() {
 				ctx.SendChain(
 					message.At(uid),
 					message.Text("\n今天你在", userInfo.Updatetime, "娶了群友"),
+					message.Image("http://q4.qlogo.cn/g?b=qq&nk="+strconv.FormatInt(userInfo.Target, 10)+"&s=640").Add("cache", 0),
 					message.Text(
 						"\n",
 						"[", userInfo.Targetname, "]",
 						"(", userInfo.Target, ")哒",
 					),
 				)
-				ctx.SendChain(
-					message.Image("http://q4.qlogo.cn/g?b=qq&nk="+strconv.FormatInt(userInfo.Target, 10)+"&s=640").Add("cache", 0),
-				)
 				return
 			case userInfo.Target == uid: // 嫁给别人
 				ctx.SendChain(
 					message.At(uid),
 					message.Text("\n今天你在", userInfo.Updatetime, "被群友"),
+					message.Image("http://q4.qlogo.cn/g?b=qq&nk="+strconv.FormatInt(userInfo.User, 10)+"&s=640").Add("cache", 0),
 					message.Text(
 						"\n",
 						"[", userInfo.Username, "]",
 						"(", userInfo.User, ")娶了",
 					),
-				)
-				ctx.SendChain(
-					message.Image("http://q4.qlogo.cn/g?b=qq&nk="+strconv.FormatInt(userInfo.User, 10)+"&s=640").Add("cache", 0),
 				)
 				return
 			}
@@ -204,82 +200,14 @@ func init() {
 			ctx.SendChain(
 				message.At(uid),
 				message.Text("今天你的群老婆是"),
+				message.Image("http://q4.qlogo.cn/g?b=qq&nk="+strconv.FormatInt(fiancee, 10)+"&s=640").Add("cache", 0),
 				message.Text(
 					"\n",
 					"[", ctx.CardOrNickName(fiancee), "]",
 					"(", fiancee, ")哒\n当前你们好感度为", favor,
 				),
 			)
-			ctx.SendChain(
-					message.Image("http://q4.qlogo.cn/g?b=qq&nk="+strconv.FormatInt(fiancee, 10)+"&s=640").Add("cache", 0),
-				)
 		})
-
-
-		engine.OnFullMatch("中出群友", zero.OnlyGroup, getdb).SetBlock(true).Limit(ctxext.LimitByUser).
-		Handle(func(ctx *zero.Ctx) {
-			gid := ctx.Event.GroupID
-			err := 民政局.开门时间(gid)
-			if err != nil {
-				ctx.SendChain(message.Text("[qqwife]数据库发生问题力\n", err))
-				return
-			}
-			uid := ctx.Event.UserID
-			// 无缓存获取群员列表
-			temp := ctx.GetThisGroupMemberListNoCache().Array()
-			sort.SliceStable(temp, func(i, j int) bool {
-				return temp[i].Get("last_sent_time").Int() < temp[j].Get("last_sent_time").Int()
-			})
-			temp = temp[math.Max(0, len(temp)-30):]
-			// 将已经娶过的人剔除
-			qqgrouplist := make([]int64, 0, len(temp))
-			for k := 0; k < len(temp); k++ {
-				usr := temp[k].Get("user_id").Int()
-				//_, status, err := 民政局.查户口(gid, usr)
-				qqgrouplist = append(qqgrouplist, usr)
-			}
-			// 没有人（只剩自己）的时候
-			if len(qqgrouplist) == 1 {
-				ctx.SendChain(message.Text("~群里没有ta人是单身了哦 明天再试试叭"))
-				return
-			}
-			// 随机抽娶
-			fiancee := qqgrouplist[rand.Intn(len(qqgrouplist))]
-			if fiancee == uid { // 如果是自己
-				ctx.SendChain(message.Text("呜...没找到人，你可以自己解决"))
-				return
-			}
-			if rand.Intn(100) > 40 {
-				ctx.SendChain(
-                                message.At(uid),
-                                message.Text("你中出了群友"),
-                                message.Text(
-                                        "\n",
-                                        "[", ctx.CardOrNickName(fiancee), "]",
-                                        "(", fiancee, ")哒\n",
-                                ),
-                        )
-                        ctx.SendChain(
-							message.Image("http://q4.qlogo.cn/g?b=qq&nk="+strconv.FormatInt(fiancee, 10)+"&s=640").Add("cache", 0),
-						)
-			} else {
-				ctx.SendChain(
-                                message.At(uid),
-                                message.Text("弱小的你中出群友失败，被群友"),
-                                message.Text(
-                                        "\n",
-                                        "[", ctx.CardOrNickName(fiancee), "]",
-                                        "(", fiancee, ")反手中出啦\n",
-                                ),      
-                        )
-                        ctx.SendChain(
-							message.Image("http://q4.qlogo.cn/g?b=qq&nk="+strconv.FormatInt(fiancee, 10)+"&s=640").Add("cache", 0),
-						)      
-			}
-		})
-
-
-		
 	engine.OnFullMatch("群老婆列表", zero.OnlyGroup, getdb).SetBlock(true).Limit(ctxext.LimitByUser).
 		Handle(func(ctx *zero.Ctx) {
 			gid := ctx.Event.GroupID

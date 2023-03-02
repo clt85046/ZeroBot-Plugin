@@ -54,10 +54,7 @@ func init() {
 			panic(err)
 		}
 		sdb = initialize(engine.DataFolder() + "score.db")
-		mdb = initializeBJ(engine.DataFolder() + "bj.db")
 	}()
-
-		
 
 	engine.OnFullMatch("特权",zero.AdminPermission).Limit(ctxext.LimitByUser).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
@@ -71,112 +68,6 @@ func init() {
 			}
 			ctx.SendChain(message.Text("充值成功: "))
 		})
-
-	engine.OnRegex(`^查看盒狗(\[CQ:at,qq=(\d+)\]\s?|(\d+))`, zero.AdminPermission).Limit(ctxext.LimitByUser).SetBlock(true).
-	Handle(func(ctx *zero.Ctx) {
-		fid := ctx.State["regex_matched"].([]string)
-		fiancee, _ := strconv.ParseInt(fid[2]+fid[3], 10, 64)
-		score := mdb.GetBJScoreByUID(fiancee).Score
-		ctx.SendChain(message.Text(strconv.FormatInt(fiancee,10)+ " 盒狗分: ",score))
-	})
-
-	engine.OnRegex(`^标记盒狗(\[CQ:at,qq=(\d+)\]\s?|(\d+))`, zero.AdminPermission).Limit(ctxext.LimitByUser).SetBlock(true).
-	Handle(func(ctx *zero.Ctx) {
-		fid := ctx.State["regex_matched"].([]string)
-		fiancee, _ := strconv.ParseInt(fid[2]+fid[3], 10, 64)
-		score := mdb.GetBJScoreByUID(fiancee).Score + 1
-		mdb.InsertOrUpdateBJScoreByUID(fiancee,score)
-		ctx.SendChain(message.Text(strconv.FormatInt(fiancee,10)+ " 盒狗分: ",score))
-		duration := 8*60*score
-		if duration >= 43200 {
-			duration = 43199 // qq禁言最大时长为一个月
-		}
-		ctx.SetGroupBan(
-			ctx.Event.GroupID,
-			fiancee, // 要禁言的人的qq
-			int64(duration*60), // 要禁言的时间（分钟）
-		)
-		ctx.SendChain(message.Text("小黑屋收留成功~"))
-	})
-
-	engine.OnRegex(`^清零分数(\[CQ:at,qq=(\d+)\]\s?|(\d+))`, zero.AdminPermission).Limit(ctxext.LimitByUser).SetBlock(true).
-	Handle(func(ctx *zero.Ctx) {
-		fid := ctx.State["regex_matched"].([]string)
-		fiancee, _ := strconv.ParseInt(fid[2]+fid[3], 10, 64)
-		mdb.InsertOrUpdateBJScoreByUID(fiancee,0)
-		ctx.SendChain(message.Text("已清零"))
-	})
-
-	engine.OnFullMatch("查看盒狗排名", zero.OnlyGroup,zero.AdminPermission).Limit(ctxext.LimitByGroup).SetBlock(true).
-		Handle(func(ctx *zero.Ctx) {
-			today := time.Now().Format("20060102 11:11:11")
-			drawedFile := cachePath + today + "hgscoreRank.png"
-			st, err := mdb.GetBJScoreRankByTopN(10)
-			if err != nil {
-				ctx.SendChain(message.Text("ERROR: ", err))
-				return
-			}
-			if len(st) == 0 {
-				ctx.SendChain(message.Text("ERROR: 目前还没有盒狗被标记"))
-				return
-			}
-			_, err = file.GetLazyData(text.FontFile, control.Md5File, true)
-			if err != nil {
-				ctx.SendChain(message.Text("ERROR: ", err))
-				return
-			}
-			b, err := os.ReadFile(text.FontFile)
-			if err != nil {
-				ctx.SendChain(message.Text("ERROR: ", err))
-				return
-			}
-			font, err := freetype.ParseFont(b)
-			if err != nil {
-				ctx.SendChain(message.Text("ERROR: ", err))
-				return
-			}
-			f, err := os.Create(drawedFile)
-			if err != nil {
-				ctx.SendChain(message.Text("ERROR: ", err))
-				return
-			}
-			var bars []chart.Value
-			for _, v := range st {
-				if v.Score != 0 {
-					bars = append(bars, chart.Value{
-						Label: ctx.CardOrNickName(v.UID),
-						Value: float64(v.Score),
-					})
-				}
-			}
-			err = chart.BarChart{
-				Font:  font,
-				Title: "盒狗TOP10",
-				Background: chart.Style{
-					Padding: chart.Box{
-						Top: 40,
-					},
-				},
-				YAxis: chart.YAxis{
-					Range: &chart.ContinuousRange{
-						Min: 0,
-						Max: math.Ceil(bars[0].Value/10) * 10,
-					},
-				},
-				Height:   500,
-				BarWidth: 50,
-				Bars:     bars,
-			}.Render(chart.PNG, f)
-			_ = f.Close()
-			if err != nil {
-				_ = os.Remove(drawedFile)
-				ctx.SendChain(message.Text("ERROR: ", err))
-				return
-			}
-			ctx.SendChain(message.Image("file:///" + file.BOTPATH + "/" + drawedFile))
-		})
-	
-
 	//zero.OnlyGroup, zero.AdminPermission
 	engine.OnFullMatch("签到").Limit(ctxext.LimitByUser).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {

@@ -53,17 +53,13 @@ func init() {
 		if err != nil {
 			ctx.SendChain(message.Text("ERR:", err))
 		}
-		idstr := strconv.Itoa(int(be.ID))
+		//idstr := strconv.Itoa(int(be.ID))
 		//idstr := "asvasd"
 		//qqstr := strconv.Itoa(int(be.QQ))
 		grpstr := strconv.Itoa(int(be.Grp))
 		//grpstr := be.Grp
 		botname := zero.BotConfig.NickName[0]
 		msg := message.Message{message.CustomNode(botname, ctx.Event.SelfID, botname+"试着帮你捞出来了这个~\n投递人: "+be.Name+"\n群号: "+grpstr+"\n时间: "+be.Time+"\n内容: \n"+be.Msg)}
-		err = delBottle(seaSide,"WHERE ID =" + idstr)
-		if err != nil {
-			ctx.SendChain(message.Text("ERR:", err))
-		}
 		ctx.Send(msg)
 	})
 
@@ -111,13 +107,6 @@ func fetchBottle(db *sql.Sqlite) (*sea, error) {
 	be := new(sea)
 	return be, db.Pick("global", be)
 }
-
-func delBottle(db *sql.Sqlite,condition string) ( error) {
-	seaLocker.Lock()
-	defer seaLocker.Unlock()
-	return  db.Del("global", condition)
-}
-
 
 //db.Find(table, objptr, "ORDER BY RANDOM() limit 1")
 

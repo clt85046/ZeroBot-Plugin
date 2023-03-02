@@ -35,19 +35,16 @@ func init() { // 插件主体
 				ctx.SendChain(message.Text("ERROR: ", err))
 				return
 			}
-			//img1, err := engine.GetCustomLazyData(bed, fmt.Sprintf("%d_%d.jpg", i, 1))
+			img1, err := engine.GetCustomLazyData(bed, fmt.Sprintf("%d_%d.jpg", i, 1))
 			if err != nil {
 				ctx.SendChain(message.Text("ERROR: ", err))
 				return
 			}
 			ctx.SendChain(
 				message.At(ctx.Event.UserID),
-			)
-			ctx.SendChain(
 				message.ImageBytes(img0),
-				//message.ImageBytes(img1),
+				message.ImageBytes(img1),
 			)
-
 		})
 	engine.OnFullMatch("解签", fcext.DoOnceOnSuccess(
 		func(ctx *zero.Ctx) bool {
@@ -87,11 +84,8 @@ func init() { // 插件主体
 				ctx.SendChain(message.Text("ERROR: ", err))
 				return
 			}
-			ctx.SendChain(
-				message.At(ctx.Event.UserID),
-			)
-			ctx.SendChain(
-				message.Image("base64://"+helper.BytesToString(kujiBytes)),
-			)
+			if id := ctx.SendChain(message.At(ctx.Event.UserID), message.Image("base64://"+helper.BytesToString(kujiBytes))); id.ID() == 0 {
+				ctx.SendChain(message.Text("ERROR: 可能被风控了"))
+			}
 		})
 }
